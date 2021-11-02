@@ -82,6 +82,13 @@ setting_segment_spacing = mod.setting(
     desc="Snake segment spacing."
 )
 
+setting_maximum_speed = mod.setting(
+    "snake_mouse_maximum_speed",
+    type=int,
+    default=200,
+    desc="Snake mouse maximum speed (maximum interval in milliseconds)."
+)
+
 ctx = Context()
 
 ctx.matches = r"""
@@ -96,9 +103,9 @@ ctx.lists["self.snake_mouse_direction"] = ["up", "right", "down", "left"]
 ctx.lists["self.snake_mouse_start_position"] = ["center", "here"]
 ctx.lists["self.snake_mouse_theme"] = ["dark", "light"]
 ctx.lists["self.snake_mouse_speed"] = {
-    "slow": "20",
-    "medium": "85",
-    "fast": "95"
+    "slow": "50",
+    "medium": "100",
+    "fast": "150"
 }
 
 
@@ -116,9 +123,14 @@ class SnakeMouse:
         actions.mode.enable("command")
 
         self.enabled = False
-        self.canvas.close()
-        self.canvas = None
-        self.snake = None
+
+        if self.canvas:
+            self.canvas.close()
+            self.canvas = None
+
+        if self.snake:
+            self.snake.stop()
+            self.snake = None
 
     def enable(self, start_theme: ActiveTheme, start_position: str, start_direction: Direction, start_speed: int):
         if self.enabled:
@@ -136,12 +148,15 @@ class SnakeMouse:
                                 setting_head_light_cursor_color.get(),
                                 setting_segment_light_background_color.get())
         snake_config = SnakeConfig(dark_theme, light_theme,
-                                   setting_segment_count.get(), setting_segment_size.get(),
+                                   setting_maximum_speed.get(),
+                                   setting_segment_count.get(),
+                                   setting_segment_size.get(),
                                    setting_segment_spacing.get())
         self.snake = Snake(snake_config, start_theme, start_point, start_direction,
                            start_speed)
 
         self.canvas.register('draw', self.snake.draw)
+        self.snake.start()
 
         ctx.tags = ["user.snake_mouse_active"]
 
@@ -200,4 +215,4 @@ class Actions:
 
     def snake_mouse_pause():
         """Pause."""
-        snake_mouse.snake.pause()
+        snake_mouse.snake.toggle()

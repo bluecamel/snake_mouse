@@ -1,3 +1,4 @@
+from talon import cron
 from talon.types import Point2d, Rect
 from enum import Enum, unique
 
@@ -73,10 +74,12 @@ class SnakeTheme:
 
 
 class SnakeConfig:
-    def __init__(self, dark_theme: SnakeTheme, light_theme: SnakeTheme, segment_count: int,
-                 segment_size: int, segment_spacing: int):
+    def __init__(self, dark_theme: SnakeTheme, light_theme: SnakeTheme,
+                 maximum_interval: int, segment_count: int, segment_size: int,
+                 segment_spacing: int):
         self.dark_theme = dark_theme
         self.light_theme = light_theme
+        self.maximum_interval = maximum_interval
         self.segment_count = segment_count
         self.segment_size = segment_size
         self.segment_spacing = segment_spacing
@@ -89,8 +92,7 @@ class Snake:
         self.theme = theme
         self.direction = start_direction
         self.speed = start_speed
-        self.draw_count = 0
-        self.paused = False
+        self.move_job = None
         self.create_head(start_point)
         self.create_segments()
 
@@ -98,8 +100,9 @@ class Snake:
         self.direction = direction
 
     def change_speed(self, speed: int):
-        print("speed", speed)
+        self.stop()
         self.speed = speed
+        self.start()
 
     def change_theme(self, theme: ActiveTheme):
         self.theme = theme
@@ -147,12 +150,6 @@ class Snake:
         for segment in self.segments:
             canvas.draw_rect(segment.rect)
 
-        if self.draw_count % (100 - self.speed) == 0:
-            if not self.paused:
-                self.move()
-
-        self.draw_count += 1
-
     def get_theme(self):
         if self.theme == ActiveTheme.DARK:
             return self.config.dark_theme
@@ -171,5 +168,17 @@ class Snake:
         elif self.direction == Direction.LEFT:
             self.head.rect.x -= self.head.rect.width + self.config.segment_spacing
 
-    def pause(self):
-        self.paused = not self.paused
+    def start(self):
+        interval = self.config.maximum_interval - self.speed
+        self.move_job = cron.interval(f"{interval}ms", self.move)
+
+    def stop(self):
+        if self.move_job:
+            cron.cancel(self.move_job)
+            self.move_job = None
+
+    def toggle(self):
+        if self.move_job:
+            self.stop()
+        else:
+            self.start()

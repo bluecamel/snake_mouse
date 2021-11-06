@@ -1,5 +1,7 @@
-from talon import Context, Module, actions, canvas, ctrl, ui
+from talon import Context, Module, actions, canvas, ctrl, ui, speech_system
 from talon.types import Point2d, Rect
+
+from .history import snake_mouse_history
 from .snake import ActiveTheme, Direction, Snake, SnakeConfig, SnakeTheme
 
 
@@ -85,9 +87,10 @@ setting_segment_spacing = mod.setting(
 setting_maximum_speed = mod.setting(
     "snake_mouse_maximum_speed",
     type=int,
-    default=200,
+    default=300,
     desc="Snake mouse maximum speed (maximum interval in milliseconds)."
 )
+
 
 ctx = Context()
 
@@ -103,9 +106,9 @@ ctx.lists["self.snake_mouse_direction"] = ["up", "right", "down", "left"]
 ctx.lists["self.snake_mouse_start_position"] = ["center", "here"]
 ctx.lists["self.snake_mouse_theme"] = ["dark", "light"]
 ctx.lists["self.snake_mouse_speed"] = {
-    "slow": "50",
-    "medium": "100",
-    "fast": "150"
+    "slow": "10",
+    "medium": "150",
+    "fast": "250"
 }
 
 
@@ -113,12 +116,14 @@ class SnakeMouse:
     def __init__(self):
         self.enabled = False
         self.canvas = None
+        self.phrase_metadata = {}
         self.snake = None
     
     def disable(self):
         if not self.enabled:
             return
 
+        speech_system.unregister("phrase", self.update_phrase_metadata)
         actions.mode.disable("user.snake_mouse")
         actions.mode.enable("command")
 
@@ -155,17 +160,26 @@ class SnakeMouse:
         self.snake = Snake(snake_config, start_theme, start_point, start_direction,
                            start_speed)
 
-        self.canvas.register('draw', self.snake.draw)
+        self.canvas.register("draw", self.snake.draw)
         self.snake.start()
 
         ctx.tags = ["user.snake_mouse_active"]
 
+        speech_system.register("phrase", self.update_phrase_metadata)
         actions.mode.enable("user.snake_mouse")
         actions.mode.disable("command")
 
     def here(self):
-        x, y = self.snake.head.center()
-        ctrl.mouse_move(x, y)
+        phrase_elapsed = self.phrase_elapsed()
+        mouse_point = self.snake.get_here(phrase_elapsed)
+
+        ctrl.mouse_move(mouse_point.x, mouse_point.y)
+        snake_mouse_history.add(mouse_point)
+
+    def phrase_elapsed(self):
+        if set(["total_ms", "total_ms"]).issubset(set(self.phrase_metadata.keys())):
+            return self.phrase_metadata["total_ms"] + self.phrase_metadata["audio_ms"]
+        return None
 
     def start_point(self, start_position: str):
         if start_position == "center":
@@ -180,6 +194,9 @@ class SnakeMouse:
         else:
             self.enable()
 
+    def update_phrase_metadata(self, j):
+        self.phrase_metadata = j["_metadata"]
+
 snake_mouse = SnakeMouse()
 
 @mod.action_class
@@ -191,7 +208,8 @@ class Actions:
 
     def snake_mouse_change_direction(direction: str):
         """Change snake mouse direction."""
-        snake_mouse.snake.change_direction(Direction.from_str(direction))
+        phrase_elapsed = snake_mouse.phrase_elapsed()
+        snake_mouse.snake.change_direction(Direction.from_str(direction), phrase_elapsed)
 
     def snake_mouse_change_speed(speed: str):
         """Change snake mouse speed."""

@@ -1,9 +1,8 @@
+import math
+
 from talon import cron
 from talon.types import Point2d, Rect
 from enum import Enum, unique
-
-
-# TODO(bkd): history apples!
 
 
 @unique
@@ -79,7 +78,7 @@ class SnakeConfig:
                  segment_spacing: int):
         self.dark_theme = dark_theme
         self.light_theme = light_theme
-        self.maximum_interval = maximum_interval
+        self.maximum_interval = maximum_interval + 1
         self.segment_count = segment_count
         self.segment_size = segment_size
         self.segment_spacing = segment_spacing
@@ -96,7 +95,15 @@ class Snake:
         self.create_head(start_point)
         self.create_segments()
 
-    def change_direction(self, direction: Direction):
+    def change_direction(self, direction: Direction, phrase_elapsed: int = None):
+        here = self.get_here(phrase_elapsed)
+        offset = Point2d(self.head.rect.center.x - here.x, self.head.rect.center.y - here.y)
+
+        self.head.rect.center = Point2d(self.head.rect.center.x - offset.x, self.head.rect.center.y - offset.y)
+
+        for segment in self.segments:
+            segment.rect.center = Point2d(segment.rect.center.x - offset.x, segment.rect.center.y - offset.y)
+
         self.direction = direction
 
     def change_speed(self, speed: int):
@@ -138,6 +145,12 @@ class Snake:
         theme = self.get_theme()
         paint = canvas.paint
 
+        # draw segments
+        paint.color = theme.segment_background_color
+        for segment in self.segments:
+            canvas.draw_rect(segment.rect)
+
+        # draw head
         paint.color = theme.head_background_color
         canvas.draw_rect(self.head.rect)
         paint.color = theme.head_cursor_color
@@ -145,35 +158,66 @@ class Snake:
                            self.head.rect.y - 1 + ((self.head.rect.width) / 2),
                            2, 2)
         canvas.draw_rect(cursor_rect)
-        paint.color = theme.segment_background_color
 
-        for segment in self.segments:
-            canvas.draw_rect(segment.rect)
+    def get_here(self, phrase_elapsed: int = None):
+        head_point = self.head.center()
+        mouse_point = head_point.copy()
+
+        if phrase_elapsed is not None and self.is_moving():
+            interval = self.get_interval()
+            vector = self.get_vector()
+
+            elapsed_intervals = math.floor(phrase_elapsed / interval)
+            if elapsed_intervals > 1:
+                elapsed_intervals -= 1
+
+            vector.x *= elapsed_intervals
+            vector.y *= elapsed_intervals
+
+            mouse_point = Point2d(head_point.x - vector.x, head_point.y - vector.y)
+
+        return mouse_point
+
+    def get_interval(self):
+        return self.config.maximum_interval - self.speed
 
     def get_theme(self):
         if self.theme == ActiveTheme.DARK:
             return self.config.dark_theme
         return self.config.light_theme 
 
+    def get_vector(self) -> Point2d:
+        vector = Point2d(0, 0)
+
+        if self.direction in [Direction.UP, Direction.DOWN]:
+            vector.y = self.head.rect.height + self.config.segment_spacing
+        else:
+            vector.x = self.head.rect.width + self.config.segment_spacing
+
+        if self.direction == Direction.UP:
+            vector.y = - vector.y
+        elif self.direction == Direction.LEFT:
+            vector.x = - vector.x
+
+        return vector
+
+    def is_moving(self):
+        return bool(self.move_job)
+
     def move(self):
         self.segments.insert(0, self.head.copy())
         self.segments.pop()
 
-        if self.direction == Direction.UP:
-            self.head.rect.y -= self.head.rect.height + self.config.segment_spacing
-        elif self.direction == Direction.RIGHT:
-            self.head.rect.x += self.head.rect.width + self.config.segment_spacing
-        elif self.direction == Direction.DOWN:
-            self.head.rect.y += self.head.rect.height + self.config.segment_spacing
-        elif self.direction == Direction.LEFT:
-            self.head.rect.x -= self.head.rect.width + self.config.segment_spacing
+        vector = self.get_vector()
+        self.head.rect.x += vector.x
+        self.head.rect.y += vector.y
 
     def start(self):
-        interval = self.config.maximum_interval - self.speed
+        interval = self.get_interval()
         self.move_job = cron.interval(f"{interval}ms", self.move)
 
     def stop(self):
-        if self.move_job:
+        if self.is_moving():
             cron.cancel(self.move_job)
             self.move_job = None
 

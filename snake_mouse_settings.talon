@@ -11,5 +11,4 @@ settings():
     user.snake_mouse_segment_count = 10
     user.snake_mouse_segment_size = 12
     user.snake_mouse_segment_spacing = 3
-    user.snake_mouse_maximum_speed = 200
-    
+    user.snake_mouse_maximum_speed = 300

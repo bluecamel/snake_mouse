@@ -106,9 +106,10 @@ ctx.lists["self.snake_mouse_direction"] = ["up", "right", "down", "left"]
 ctx.lists["self.snake_mouse_start_position"] = ["center", "here"]
 ctx.lists["self.snake_mouse_theme"] = ["dark", "light"]
 ctx.lists["self.snake_mouse_speed"] = {
+    "super slow": "1",
     "slow": "10",
-    "medium": "150",
-    "fast": "250"
+    "medium": "850",
+    "fast": "950"
 }
 
 

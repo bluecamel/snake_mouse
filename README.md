@@ -44,3 +44,8 @@ noodle light left slow
 
 # Customization
 All commands/captures are defined in context lists, so can be easily overridden.  Themes and segment count, size, and spacing are defined as settings (see `snake_mouse_settings.talon`).
+
+# Credit
+Apple image created by [Vincent Le Moign](https://twitter.com/webalys), licensed under [Creative Comments Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/deed.en), and obtained from [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:527-red-apple.svg).  Modifications:
+- removed bottom shadow
+- scaled to 30x32
